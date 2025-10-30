@@ -44,6 +44,7 @@ Todo o projeto foi documentado e versionado no GitHub, incluindo o fluxo de trab
 
 ### Estrutura do Chatbot N8N + IA
 📊 **Fluxo de automação**: Veja o print do fluxo completo de integração entre N8N e Gemini AI (arquivo: `src/img/chat-bot-ai-gemini.jpg`)
+🗂️ **Arquivo do fluxo N8N**: Arquivo JSON exportado do fluxo de automação (arquivo: `n8n/ChatBot + IA (com Q&A).json`)
 
 ### Repositório do Projeto
 📁 **GitHub**: Todo o código e documentação estão disponíveis neste repositório
