@@ -1,0 +1,610 @@
+{
+  "name": "ChatBot + IA (com Q&A)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Você é um consultor educacional da Classic House. Apresente-se de forma cordial e profissional. Sua missão é guiar os interessados em nossa Formação Clássica Integrada. O processo tem duas fases:\n\nFASE 1: CAPTURA DE LEAD\nSeu primeiro objetivo é realizar um breve cadastro com os interessados. Colete as seguintes informações, SEMPRE UM CAMPO POR VEZ:\n- Nome completo\n- Email válido\n- Telefone com DDD (formato: 11 99999-9999)\n- Idade\n- Como ficou sabendo do curso? (Instagram, Google, Youtube ou Outros)\n\nREGRAS DA FASE 1:\nPergunte apenas UM campo por mensagem.\nAguarde a resposta antes de avançar para o próximo.\nSeja sempre gentil e conversacional.\n\nQuando coletar TODOS os dados, repita para confirmação. Você vai perguntar: \"Podemos confirmar seus dados? [lista de dados]. Responda 'sim' para confirmar.\"\n\nAja SOMENTE após o usuário responder 'sim' à confirmação.\n\nSe a pessoa confirmar 'sim', responda PRIMEIRO com \"Excelente! Seus dados foram salvos com sucesso. Agora estou à disposição para tirar qualquer dúvida que você tenha sobre o curso.\" e DEPOIS, na mesma resposta, adicione os dados EM JSON:\n\n{\n\"nome\": \"...\",\n\"email\": \"...\",\n\"telefone\": \"...\",\n\"idade\": ...,\n\"origem\": \"...\"\n}\n\nFASE 2: ASSISTENTE DE PERGUNTAS E RESPOSTAS\nApós a captura do lead ser concluída (após o usuário dizer 'sim'), sua função muda. Você se torna um assistente para tirar dúvidas sobre o curso. Use as informações abaixo para responder.\n\nINFORMAÇÕES SOBRE O CURSO:\nNome do Curso: Formação Clássica Integrada\n\nDescrição: A Formação Clássica Integrada é o coração da Classic House. Mais do que um curso, é uma experiência de mentoria que resgata os princípios da educação clássica e os traduz para a realidade atual. O programa combina leitura, reflexão, prática e acompanhamento para que jovens e adultos construam uma base sólida para a vida intelectual, emocional, física e espiritual.\n\nAo longo das aulas online e encontros com mentores, os alunos desenvolvem hábitos de estudo, aprendem a interpretar os clássicos, fortalecem a identidade e a disciplina pessoal. Cada módulo trabalha valores e competências essenciais. Nossa ideia não é formar profissionais mais preparados, mas indivíduos capazes de pensar de forma crítica, comunicar-se com clareza e agir com responsabilidade. Livre de ideologias que matam a identidade original e desviam o foco da jornada que cada um deve trilhar.\n\nAlém disso, os participantes fazem parte de uma comunidade alinhada, onde compartilham experiências e crescem juntos. É um espaço premium e exclusivo, que mostra na prática — por meio de mentorias ao vivo e gravações como o Classic Sessions — como a filosofia, a história e a disciplina podem transformar vidas no presente, preparando para um futuro completo.\n\nSite Oficial: https://theclassichouse.com.br/ Link para Matrícula: [LINK_PARA_MATRICULA]\nREGRAS DA FASE 2:\n\nResponda de forma clara e objetiva usando as informações fornecidas.\n\nSe você não souber a resposta, diga que irá verificar com a equipe e que eles entrarão em contato.\n\nIncentive o usuário a visitar o site oficial ou usar o link de matrícula para mais detalhes.\n\nComece sempre a conversa se apresentando e perguntando pelo nome, iniciando a FASE 1."
+        }
+      },
+      "id": "0d27a930-431c-488c-82a1-d5ab3cf78816",
+      "name": "Your First AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [-2224, 264],
+      "typeVersion": 2.2,
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 50
+      },
+      "id": "1966a0db-774c-467b-9116-64dcc2ed6dea",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [-2088, 488],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "31015420-5e44-4d4f-9844-1f72142767f5",
+      "name": "Connect Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [-2216, 488],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "id": "55179602-f181-4f1b-979c-40607b8be4dd",
+      "name": "Chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [-2448, 264],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const respostaIa = $json.output || $json.text || '';\nconst prefixoJson = respostaIa.indexOf('{');\nconst sufixoJson  = respostaIa.lastIndexOf('}');\nif (prefixoJson > -1 && sufixoJson > -1) {\n  try {\n    const jsonString = respostaIa.substring(prefixoJson, sufixoJson + 1);\n    return JSON.parse(jsonString);\n  } catch(e) {\n    // Se falhar no parse, loga para debug depois faz fallback\n    console.log(\"Falha no parse do JSON IA:\", e, jsonString);\n  }\n}\n\n// Fallback: tenta extrair do histórico de conversa\nconst history = $node[\"Conversation Memory\"].json;\nif (Array.isArray(history)) {\n  const contextConcat = history.map(m => m.content || '').join('\\n');\n  // Aqui pode rodar regex se quiser extrair info chave\n  // Exemplo:\n  // ... regex código do Extract Lead aqui ...\n  return { history: contextConcat };\n}\nreturn history;\n"
+      },
+      "id": "0024e376-f971-4e32-9156-e6de265255aa",
+      "name": "Extract Lead Data",
+      "type": "n8n-nodes-base.code",
+      "position": [-1648, 168],
+      "typeVersion": 2,
+      "alwaysOutputData": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "d3b66462-24c6-409d-8285-c56775665062",
+              "leftValue": "={{ $json.nome }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5614b7ed-3311-4d59-a8c2-7e74f6f37bba",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5acf568c-01e1-4078-baaf-78f946b712dc",
+              "leftValue": "={{ $json.telefone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b6036fe1-1bd1-4341-8c46-b29030b3f3af",
+              "leftValue": "={{ $json.idade }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "767619ab-fb7c-4963-9629-1b1cc3451e58",
+              "leftValue": "={{ $json.origem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f8a33da3-9ce0-49a1-ad96-2eea1119e7a7",
+              "leftValue": "={{ $('Chat').item.json.chatInput }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "105555db-e210-4dc6-8902-49b68440b253",
+      "name": "Check If Complete",
+      "type": "n8n-nodes-base.if",
+      "position": [-1424, 168],
+      "typeVersion": 2,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const id_odoo = $input.first().json.id;\n// Recebe o objeto de dados extraídos\nconst dados = $json;\n\nconst campos = {\n  'nome': 'nome completo',\n  'email': 'email',\n  'telefone': 'telefone com DDD',\n  'idade': 'idade',\n  'origem': 'como ficou sabendo do curso'\n};\n\nconst faltantes = [];\nfor (const [campo, descricao] of Object.entries(campos)) {\n  if (!dados[campo] || dados[campo].toString().trim() === '') {\n    faltantes.push(descricao);\n  }\n}\n\nlet mensagem;\nif (faltantes.length === 1 && !(id_odoo > 0)) {\n  mensagem = `Só falta mais uma informação para finalizar seu cadastro: *${faltantes[0]}*. Pode me informar?`;\n} else if (faltantes.length > 1 && !(id_odoo > 0)) {\n  mensagem = `Preciso de mais algumas informações para concluir sua inscrição:\\n\\n${faltantes.map(f => `• ${f}`).join('\\n')}\\n\\nVamos começar com o *${faltantes[0]}*?`;\n} else {\n  mensagem = `Ótimo! Recebi todos os dados obrigatórios. \\n Em que posso ajudá-lo?.`;\n}\n\n// Você pode adicionar o array de campos faltantes se quiser usar depois\nif(id_odoo > 0){\n  return {output: mensagem}\n}else{\nreturn {\n  output:{\n  \n  mensagem,\n  faltantes\n  }\n};\n}\n"
+      },
+      "id": "31213ffc-3b61-4c2b-9fe8-bfe6cb38bfba",
+      "name": "Output - IF False",
+      "type": "n8n-nodes-base.code",
+      "position": [-80, 168],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "crm.lead",
+        "fieldsToCreateOrUpdate": {
+          "fields": [
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $('Prepare Request').item.json.name }}"
+            },
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ $('Prepare Request').item.json.phone }}"
+            },
+            {
+              "fieldName": "email_from",
+              "fieldValue": "={{ $('Prepare Request').item.json.email_from }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $('Prepare Request').item.json.description }}"
+            },
+            {
+              "fieldName": "source_id",
+              "fieldValue": "={{ $('Prepare Request').item.json.source_id }}"
+            },
+            {
+              "fieldName": "medium_id",
+              "fieldValue": "={{ $('Prepare Request').item.json.medium_id }}"
+            },
+            {
+              "fieldName": "campaign_id",
+              "fieldValue": "={{ $('Prepare Request').item.json.campaign_id }}"
+            },
+            {
+              "fieldName": "contact_name",
+              "fieldValue": "={{ $('Prepare Request').item.json.contact_name }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "={{ $('Prepare Request').item.json.type }}"
+            }
+          ]
+        }
+      },
+      "id": "53fa3913-fcc5-4c32-a241-9b2c22bfa15b",
+      "name": "Create Lead",
+      "type": "n8n-nodes-base.odoo",
+      "position": [-528, 192],
+      "typeVersion": 1,
+      "executeOnce": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "function s(x) { return (x ?? '').toString().trim(); }\n\nlet payload = null;\nlet source_id = null;\nlet medium_id = null;\nlet campaign_id = null;\nlet idade = null;\nlet origem = null;\n\n// Scan all items (from Merge)\nfor (const it of items) {\n  const j = it.json ?? it;\n\n  if (j.body || j.firstname || j.lastname || j.email || j.notes || j.phone || j.nome) {\n    payload = j.body ?? j;\n    idade = s(payload.idade ?? j.idade ?? '');\n    origem = s(payload.origem ?? j.origem ?? '');\n  }\n  if (j.source_id !== undefined && source_id === null) {\n    const n = Number(j.source_id);\n    source_id = Number.isFinite(n) ? n : null;\n  }\n  if (j.medium_id !== undefined && medium_id === null) {\n    const n = Number(j.medium_id);\n    medium_id = Number.isFinite(n) ? n : null;\n  }\n  if (j.campaign_id !== undefined && campaign_id === null) {\n    const n = Number(j.campaign_id);\n    campaign_id = Number.isFinite(n) ? n : null;\n  }\n}\n\nif (!payload) {\n  throw new Error('Webhook payload não encontrado após Merge. Verifique as conexões do IF/False ao Merge.');\n}\n\n// Aceita também leads que venham só como \"nome\" já pronto\nconst first = s(payload.firstname);\nconst last  = s(payload.lastname);\nconst nomeFinal = (first || last) ? `${first} ${last}`.trim() : s(payload.nome) || s(payload.email) || 'Novo Lead';\n\nconst out = {\n  name: nomeFinal,\n  contact_name: nomeFinal,\n  email_from: s(payload.email),\n  phone: s(payload.telefone),\n  description:\n    (s(payload.notes) ? s(payload.notes) + '\\n' : '') +\n    (idade   ? `Idade: ${idade}\\n` : '') +\n    (origem  ? `Origem: ${origem}\\n` : ''),\n\n  type: 'lead',\n  campaign_id,\n  source_id,\n  medium_id,\n};\n\nreturn [{ json: out }];\n"
+      },
+      "id": "0f48173e-570a-46be-bcaa-e7bb679c5654",
+      "name": "Prepare Request",
+      "type": "n8n-nodes-base.code",
+      "position": [-1200, 96],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2d06b1a9-b526-4dbd-8acf-fde5fabf6508",
+              "leftValue": "={{ $('Chat').item.json.chatInput }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "98291e67-e745-4e64-b477-c758110d918b",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "{",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1872, 264],
+      "id": "a5ef0f3d-58a4-4ced-913c-560c29ec808f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "befcd0bc-a4c0-48ad-9db7-44a687ccbab0",
+      "name": "Success1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [-1648, 360],
+      "typeVersion": 1.4,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "676d9b8f-0407-4cc9-a841-7287dc6e2c85",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-752, 96],
+      "id": "d101ec89-18aa-4534-ab10-a040495e5935",
+      "name": "If1",
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "retryOnFail": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "crm.lead",
+        "operation": "update",
+        "customResourceId": "={{ $json.id }}",
+        "fieldsToCreateOrUpdate": {
+          "fields": [
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ $('Extract Lead Data').item.json.telefone }}"
+            },
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $('Extract Lead Data').item.json.nome }}"
+            },
+            {
+              "fieldName": "email_from",
+              "fieldValue": "={{ $('Extract Lead Data').item.json.email }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "=Idade: {{ $('Extract Lead Data').item.json.idade }} | Origem: {{ $('Extract Lead Data').item.json.origem }}"
+            }
+          ]
+        }
+      },
+      "id": "4c43cea7-f751-46fa-9ed2-4f2addc34efd",
+      "name": "Update Lead",
+      "type": "n8n-nodes-base.odoo",
+      "position": [-528, 0],
+      "typeVersion": 1,
+      "executeOnce": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "234b1096-c5bc-47ad-8c79-12bfab0fd7a4",
+      "name": "Bad Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [144, 168],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "02767f54-a282-4cc7-8610-579102f95c7f",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-304, 96],
+      "id": "1355fc10-3acf-4266-8b15-f38a4c75334d",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "crm.lead",
+        "operation": "getAll",
+        "limit": 1,
+        "options": {
+          "fieldsList": ["email_from"]
+        },
+        "filterRequest": {
+          "filter": [
+            {
+              "fieldName": "email_from",
+              "value": "={{ $json.email_from }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 1,
+      "position": [-976, 96],
+      "id": "ad1e6ac2-fc03-4265-9b52-ceb2b6a30ec4",
+      "name": "Get many items",
+      "alwaysOutputData": true,
+      "notesInFlow": false
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Connect Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Your First AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Your First AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your First AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat": {
+      "main": [
+        [
+          {
+            "node": "Your First AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Check If Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Complete": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Output - IF False",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output - IF False": {
+      "main": [
+        [
+          {
+            "node": "Bad Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Lead": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Request": {
+      "main": [
+        [
+          {
+            "node": "Get many items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Extract Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Update Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Output - IF False",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get many items": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "Wk63aMgmKC08MJAV"
+  },
+  "versionId": "5b3c6599-41ed-4e83-84b1-7138c37ad9f8",
+  "id": "sanitized-workflow",
+  "tags": [
+    {
+      "createdAt": "2025-09-30T13:22:06.669Z",
+      "updatedAt": "2025-09-30T13:22:06.669Z",
+      "id": "BumRkk1wOzmyBspI",
+      "name": "PRODUCTION"
+    }
+  ]
+}
